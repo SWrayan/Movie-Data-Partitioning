@@ -10,6 +10,11 @@
 - **Kaggle**: Источник данных.
 
 ## Источник данных
+Перед загрузкой установил необходимую библиотеку:
+```bash
+   pip install kagglehub 
+   ```
+
 Данные были загружены из набора данных Kaggle:
 ```python
 import kagglehub
@@ -168,38 +173,122 @@ CREATE INDEX idx_genre_rating ON rotten_tomatoes_movies_partitioned (genre, toma
 ```
 По умолчанию индекс B-tree. 
 ### 8. Примеры запросов для анализа
-#### Фильтрация по дате
+
+#### 1. Фильтрация по дате релиза
+
 ```sql
 SELECT *
 FROM rotten_tomatoes_movies_partitioned
 WHERE on_streaming_date BETWEEN '2010-01-01' AND '2010-12-31';
 ```
 
-#### Топ-10 фильмов по рейтингу
+#### 2. Анализ жанров с высоким рейтингом критиков
+
 ```sql
-SELECT movie_title, tomatometer_rating
+SELECT genre, AVG(tomatometer_rating) as avg_rating
 FROM rotten_tomatoes_movies_partitioned
-WHERE genre = 'Action'
-ORDER BY tomatometer_rating DESC
+WHERE tomatometer_rating > 70
+GROUP BY genre
+ORDER BY avg_rating DESC;
+```
+
+#### 3. Наиболее продуктивные студии
+
+```sql
+SELECT studio_name, COUNT(*) as movie_count
+FROM rotten_tomatoes_movies_partitioned
+GROUP BY studio_name
+ORDER BY movie_count DESC
 LIMIT 10;
 ```
 
-#### Количество фильмов по годам
+#### 4. Анализ популярности жанров
+Определение самых популярных жанров на основе среднего рейтинга зрителей, с учетом минимального числа отзывов для надежности данных.
 ```sql
-SELECT EXTRACT(YEAR FROM on_streaming_date) AS year, COUNT(*)
-FROM rotten_tomatoes_movies_partitioned
-GROUP BY year
-ORDER BY year;
+SELECT 
+    genre,
+    COUNT(*) AS movie_count,
+    AVG(audience_rating) AS avg_audience_rating,
+    SUM(audience_count) AS total_audience_reviews
+FROM 
+    rotten_tomatoes_movies_partitioned
+WHERE 
+    audience_count > 1000
+GROUP BY 
+    genre
+ORDER BY 
+    avg_audience_rating DESC
+LIMIT 10;
+```
+#### 5. Лучшие режиссеры
+Поиск ТОП-10 режиссеров, создавших больше всего фильмов с рейтингом критиков выше 85%
+```sql
+SELECT 
+    directors,
+    COUNT(*) AS high_rating_movies_count
+FROM 
+    rotten_tomatoes_movies_partitioned
+WHERE 
+    tomatometer_rating > 85
+GROUP BY 
+    directors
+ORDER BY 
+    high_rating_movies_count DESC
+LIMIT 10;
+```
+#### 6. Жанры, популярные в разные годы
+Сравнение популярности жанров по среднему рейтингу зрителей в разные десятилетия.
+```sql
+SELECT 
+    EXTRACT(YEAR FROM on_streaming_date)::INT / 10 * 10 AS decade,
+    genre,
+    AVG(audience_rating) AS avg_rating,
+    COUNT(*) AS movie_count
+FROM 
+    rotten_tomatoes_movies_partitioned
+GROUP BY 
+    decade, genre
+HAVING 
+    COUNT(*) > 10
+ORDER BY 
+    decade, avg_rating DESC;
 ```
 
-## Навыки, использованные в проекте
+#### 7. Сравнение успешности студий
+Определение студий с наибольшим количеством успешных фильмов (с рейтингом зрителей выше 70%).
+```sql
+SELECT 
+    studio_name,
+    COUNT(*) AS successful_movies_count,
+    AVG(audience_rating) AS avg_success_rating
+FROM 
+    rotten_tomatoes_movies_partitioned
+WHERE 
+    audience_rating > 70
+GROUP BY 
+    studio_name
+ORDER BY 
+    successful_movies_count DESC
+LIMIT 10;
+```
+
+---
+
+### Возможности анализа
+
+- **Дата релиза и популярность**: Сравнение оценок фильмов, выпущенных в разные годы.
+- **Жанры и рейтинги**: Выявление наиболее популярных жанров среди зрителей и критиков.
+- **Студии и качество**: Анализ успешности студий по количеству высокорейтинговых фильмов.
+
+---
+### Навыки, использованные в проекте
 - Работа с реляционными базами данных (PostgreSQL).
 - Партиционирование таблиц для оптимизации запросов.
 - Очистка и подготовка данных.
 - Создание индексов и базовая оптимизация.
 - Подготовка данных для интеграции с инструментами визуализации (Tableau).
 
-## Контакты
+### Контакты
 [Моё резюме на HeadHunter](https://rostov.hh.ru/resume/1ffeec20ff0ce23f9f0039ed1f48474b576633)
 
 ---
